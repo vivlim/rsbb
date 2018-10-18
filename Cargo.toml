@@ -13,9 +13,13 @@ warp = "0.1.2"
 mime = "0.3.0"
 env_logger = "0.5.0"
 log = "*"
-diesel = { version = "1.0.0", features = ["r2d2", "postgres"] }
+diesel = { version = "1.0.0", features = ["r2d2", "sqlite"] }
 dotenv = "0.13.0"
 serde = "1.0.0"
 serde_derive = "1.0.0"
 bcrypt = "0.2.0"
 rand = "0.5.5"
+
+[dependencies.rusqlite]
+version = "0.14.0"
+features = ["bundled"]

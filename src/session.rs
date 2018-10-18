@@ -1,5 +1,5 @@
 use diesel;
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use models::User;
@@ -9,8 +9,8 @@ use rand::Rng;
 use warp::filters::{cookie, BoxedFilter};
 use warp::{self, reject, Filter};
 
-type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
-type PgPool = Pool<ConnectionManager<PgConnection>>;
+type PooledSqlite = PooledConnection<ConnectionManager<SqliteConnection>>;
+type SqlitePool = Pool<ConnectionManager<SqliteConnection>>;
 
 /// A Session object is sent to most handler methods.
 ///
@@ -21,7 +21,7 @@ type PgPool = Pool<ConnectionManager<PgConnection>>;
 /// redis, or application specific services) and/or other temporary
 /// user data (e.g. a shopping cart in a web shop).
 pub struct Session {
-    db: PooledPg,
+    db: PooledSqlite,
     id: Option<i32>,
     user: Option<User>,
 }
@@ -42,19 +42,29 @@ impl Session {
 
             let secret = random_key(48);
             use schema::sessions::dsl::*;
-            let result = diesel::insert_into(sessions)
-                .values((user_id.eq(user.id), cookie.eq(&secret)))
-                .returning(id)
-                .get_results(self.db());
-            if let Ok([a]) = result.as_ref().map(|v| &**v) {
-                self.id = Some(*a);
-                self.user = Some(user);
-                return Some(secret);
-            } else {
-                error!(
-                    "Failed to create session for {}: {:?}",
-                    user.username, result,
-                );
+            // todo: is this a critical section??
+            /*
+    conn.transaction::<_, Error, _>(|| {
+        insert_into(users).values(name.eq("Ruby")).execute(conn)?;
+
+        users.select(id).order(id.desc()).first(conn)
+    })
+            */
+            diesel::insert_into(sessions)
+                .values((user_id.eq(user.id), cookie.eq(&secret))).execute(&self.db).expect("whoops inserting into sessions failed");
+
+            let get_session_id = sessions.select(id).order(id.desc()).first::<i32>(&self.db);
+
+            match get_session_id {
+                Ok(session_id) => {
+                    self.id = Some(session_id);
+                    self.user = Some(user);
+                    return Some(secret);
+                }
+                Err(err) => error!(
+                        "Failed to create session for {}: :( {}",
+                        user.username, err,
+                    )
             }
         }
         None
@@ -66,7 +76,7 @@ impl Session {
     /// matching session is loaded.
     /// The database pool handle is included in the session regardless
     /// of if the session key is a valid session or not.
-    pub fn from_key(db: PooledPg, sessionkey: Option<&str>) -> Self {
+    pub fn from_key(db: PooledSqlite, sessionkey: Option<&str>) -> Self {
         use schema::sessions::dsl as s;
         use schema::users::dsl as u;
         let (id, user) = sessionkey
@@ -108,7 +118,7 @@ impl Session {
     pub fn user(&self) -> Option<&User> {
         self.user.as_ref()
     }
-    pub fn db(&self) -> &PgConnection {
+    pub fn db(&self) -> &SqliteConnection {
         &self.db
     }
 }
@@ -135,7 +145,7 @@ pub fn create_session_filter(db_url: &str) -> BoxedFilter<(Session,)> {
         }).boxed()
 }
 
-fn pg_pool(database_url: &str) -> PgPool {
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
-    Pool::new(manager).expect("Postgres connection pool could not be created")
+fn pg_pool(database_url: &str) -> SqlitePool {
+    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
+    Pool::new(manager).expect("Sqlite connection pool could not be created")
 }

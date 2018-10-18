@@ -1,5 +1,4 @@
 use bcrypt;
-use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use std::io::{self, Write};
 use templates::ToHtml;
@@ -13,7 +12,7 @@ pub struct User {
 
 impl User {
     pub fn authenticate(
-        db: &PgConnection,
+        db: &SqliteConnection,
         user: &str,
         pass: &str,
     ) -> Option<Self> {
