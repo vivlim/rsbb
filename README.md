@@ -1,10 +1,10 @@
-# Web example: Login with warp, ructe, and diesel
+# Web example: Login with warp, ructe, and diesel with sqlite
 
 This application is intended as an example of a web service handling a login
 session.
 It uses the [warp](https://crates.io/crates/warp) web framework,
 the [ructe](https://crates.io/crates/ructe) template engine and
-the [diesel](https://diesel.rs/) database layer.
+the [diesel](https://diesel.rs/) database layer, using the sqlite backend.
 
 [![Build Status](https://travis-ci.org/kaj/warp-diesel-ructe-sample.svg?branch=master)](https://travis-ci.org/kaj/warp-diesel-ructe-sample)
 
